@@ -1,0 +1,126 @@
+---
+title: "Tugas Kuliah MPDW"
+output: html_document
+date: "2025-08-28"
+---
+
+```{r}
+#membaca file excel
+library(readxl)
+data <- read_excel("C:/Users/LENOVO/Downloads/Data IPM Jabar.xlsx")
+data
+```
+
+```{r}
+#menampilkan struktur data
+str(data)
+```
+
+```{r}
+#menampilkan ringkasan statistik data
+summary(data)
+```
+
+```{r}
+#melakukan regresi time series 
+model <- lm(indeks_pembangunan_manusia ~ tahun, data = data)
+
+summary(model)
+```
+
+```{r}
+plot(data$tahun, data$indeks_pembangunan_manusia,
+     type = "b", pch = 19, col = "blue",
+     xlab = "Tahun", ylab = "Indeks Pembangunan Manusia",
+     main = "Regresi Time Series IPM vs Tahun")
+abline(model, col = "red", lwd = 2)
+```
+
+```{r}
+#melakukan uji durbin watson
+library(lmtest)
+dwtest(model)
+```
+
+
+```{r}
+library("forecast")
+library("graphics")
+library("TTR")
+library("TSA")
+library("rio")
+```
+
+```{r}
+data.ts <- ts(data$indeks_pembangunan_manusia)
+```
+
+```{r}
+summary(data.ts)
+```
+
+```{r}
+ts.plot(data.ts, xlab="Time Period ", ylab="Reading", 
+        main = "Time Series Plot")
+points(data.ts)
+```
+
+```{r}
+#hitung jumlah data
+n <- nrow(data)
+
+# tentukan batas 80%
+n_train <- floor(0.8 * n)
+
+# bagi data
+training_ma <- data[1:n_train, ]
+testing_ma  <- data[(n_train+1):n, ]
+
+# ubah ke time series
+train_ma.ts <- ts(training_ma$indeks_pembangunan_manusia)
+test_ma.ts  <- ts(testing_ma$indeks_pembangunan_manusia)
+```
+
+```{r}
+plot(data.ts, col="red",main="Plot semua data")
+points(data.ts)
+
+plot(train_ma.ts, col="blue",main="Plot data latih")
+points(train_ma.ts)
+
+plot(test_ma.ts, col="blue",main="Plot data uji")
+points(test_ma.ts)
+```
+
+```{r}
+library(ggplot2)
+ggplot() + 
+  geom_line(data = training_ma, aes(x = tahun, y = indeks_pembangunan_manusia, col = "Data Latih")) +
+  geom_line(data = testing_ma, aes(x = tahun, y = indeks_pembangunan_manusia, col = "Data Uji")) +
+  labs(x = "Periode Waktu", y = "Sales", color = "Legend") +
+   scale_colour_manual(name="Keterangan:", breaks = c("Data Latih", "Data Uji"),
+                      values = c("blue", "red")) + 
+  theme_bw() + theme(legend.position = "bottom",
+                     plot.caption = element_text(hjust=0.5, size=12))
+```
+
+```{r}
+data.sma<-SMA(train_ma.ts, n=4)
+data.sma
+```
+
+```{r}
+data.ramal<-c(NA,data.sma)
+data.ramal #forecast 1 periode ke depan
+```
+
+```{r}
+data.gab<-cbind(
+  aktual=c(data.ts),
+  pemulusan=c(data.sma,rep(NA,24)),
+  ramalan=c(data.ramal,rep(data.ramal[length(data.ramal)],23)))
+
+data.gab #forecast 24 periode ke depan
+```
+
+
