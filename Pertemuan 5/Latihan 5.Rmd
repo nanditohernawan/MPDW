@@ -1,0 +1,121 @@
+---
+title: "Latihan 5"
+output: html_document
+date: "2025-09-30"
+---
+
+```{r}
+library(ggplot2)
+library(tsibble)
+library(tseries)
+library(MASS)
+library(readxl)
+```
+
+## Stasioner dalam Rataan dan Ragam
+### Import data
+```{r}
+data <- read_excel("C:/Users/LENOVO/Downloads/Data_MPDW1.xlsx")
+data
+```
+
+```{r}
+data.ts <- ts(data$AI_Revenue_USD_Mn)
+```
+
+### Plot Time Series
+```{r}
+ts.plot(data.ts, xlab = "Date", ylab = "Revenue", 
+        main = "Time Series Plot",
+        ylim = c(125, 175))   # atur rentang Y
+
+points(data.ts)
+```
+
+
+```{r}
+data.ts |> as_tsibble() |> 
+  ggplot(aes(x = index, y = value)) +
+  geom_line() + theme_bw() +
+  xlab("Date") + ylab("Revenue")
+```
+
+Terdapat kenaikan data ekstrem yang diakibatkan dari pergantian tahun. Hal tersebut disebabkan oleh data kelompok saya merupakan data saham OPEN AI dan saya mendapatkan data di pergantian tahun sehingga terdapat lonjakkan nilai saham dari tahun sebelumnya ke tahun yang baru (2023-2024), sehingga dilakukan pemangkasan data ekstrem tersebut.
+
+```{r}
+start(data.ts)
+end(data.ts)
+frequency(data.ts)
+```
+
+```{r}
+data_trimmed <- window(data.ts, start = 50, end = 200)
+data_trimmed
+```
+
+### Plot Time Series setelah pemangkasan
+```{r}
+ts.plot(data_trimmed, xlab = "Date", ylab = "Revenue", 
+        main = "Time Series Plot",
+        ylim = c(152, 157))   # atur rentang Y
+```
+
+Data setelah pemangkasan terlihat lebih stasioner. Perlu dibuktikan apakah data sudah stasioner atau belum.
+
+```{r}
+lattice::densityplot(as.vector(data_trimmed))
+```
+
+Plot deret waktu diatas menunjukkan bahwa data stasioner dalam rataan ditandai dengan data yang menyebar di sekitar nilai tengahnya (154) dan stasioner dalam ragam, ditandai dengan data berfluktuasi pada rentang
+yang relatif sama sepanjang waktu.
+
+### Plot ACF
+
+```{r}
+acf(data_trimmed)
+```
+
+Berdasarkan plot acf diatas, terlihat bahwa nilai acf cenderung *tails-off* dan membentuk gelombang sinus
+
+### Uji ADF
+```{r}
+tseries::adf.test(data_trimmed)
+```
+
+$H_0$ : Data tidak stasioner dalam rataan
+
+$H_1$ : Data stasioner dalam rataan
+
+Berdasarkan uji ADF tersebut, didapat *p-value* sebesar 0.01 yang lebih
+kecil dari taraf nyata 5% sehingga tolak $H_0$ dan menandakan bahwa data
+**stasioner dalam rataan**. Hal ini sesuai dengan hasil eksplorasi
+menggunakan plot time series dan plot ACF.
+
+### Plot Box-Cox
+```{r}
+index <- seq(50:200)
+
+# Box-Cox
+bc <- boxcox(
+  data_trimmed ~ index,
+  lambda = seq(-1, 4, by = 0.01)
+)
+
+# Nilai lambda optimum
+lambda <- bc$x[which.max(bc$y)]
+lambda
+
+# Selang kepercayaan 95% untuk lambda
+ci_lambda <- bc$x[bc$y > max(bc$y) - 0.5 * qchisq(0.95, 1)]
+
+# Batas bawah dan batas atas
+ci_lower <- min(ci_lambda)
+ci_upper <- max(ci_lambda)
+
+c(Batas_Bawah = ci_lower, Batas_Atas = ci_upper)
+```
+
+Jadi, hasil ini menunjukkan data Anda relatif stabil (homoskedastis) dan tidak terlalu butuh transformasi Box-Cox.
+
+
+
