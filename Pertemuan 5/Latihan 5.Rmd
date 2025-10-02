@@ -115,7 +115,7 @@ ci_upper <- max(ci_lambda)
 c(Batas_Bawah = ci_lower, Batas_Atas = ci_upper)
 ```
 
-Gambar di atas menunjukkan nilai λ optimum (dibulatkan) sekitar 21,60 dan selang kepercayaan 95% untuk λ memiliki batas bawah −13,15 dan batas atas 56,34. Selang tersebut memuat nilai 1, sehingga secara praktis dapat dikatakan data bangkitan stasioner dalam ragam.
+Gambar di atas menunjukkan nilai λ optimum (dibulatkan) sekitar 21,60 dan selang kepercayaan 95% untuk λ memiliki batas bawah −19,22 dan batas atas 56,34. Selang tersebut memuat nilai 1, sehingga secara praktis dapat dikatakan data bangkitan stasioner dalam ragam.
 
 
 
