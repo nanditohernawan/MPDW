@@ -98,7 +98,7 @@ index <- seq(50:200)
 # Box-Cox
 bc <- boxcox(
   data_trimmed ~ index,
-  lambda = seq(-1, 4, by = 0.01)
+  lambda = seq(-100, 200, by = 0.01)
 )
 
 # Nilai lambda optimum
@@ -115,7 +115,7 @@ ci_upper <- max(ci_lambda)
 c(Batas_Bawah = ci_lower, Batas_Atas = ci_upper)
 ```
 
-Jadi, hasil ini menunjukkan data Anda relatif stabil (homoskedastis) dan tidak terlalu butuh transformasi Box-Cox.
+Gambar di atas menunjukkan nilai λ optimum (dibulatkan) sekitar 21,60 dan selang kepercayaan 95% untuk λ memiliki batas bawah −13,15 dan batas atas 56,34. Selang tersebut memuat nilai 1, sehingga secara praktis dapat dikatakan data bangkitan stasioner dalam ragam.
 
 
 
