@@ -257,8 +257,5 @@ perbandingan
 accuracy(data.ramalan, saham.test)
 ```
 
-```{r}
-summary(saham.test)
-summary(data.ramalan)
-```
+Berdasarkan nilai MAPE pada hasil nilai akurasi didapatkan nilai MAPE sebesar 27.8% yang berarti model diatas merupakan nilai produksi yang layak.
 
