@@ -1,1 +1,264 @@
+---
+title: "Untitled"
+output: html_document
+date: "2025-10-01"
+---
+
+```{r, warning=FALSE}
+library(ggplot2)
+library(tsibble)
+library(tseries)
+library(MASS)
+library(forecast)
+library(TSA)
+library(TTR)
+library(aTSA)
+library(graphics)
+library(readxl)
+```
+
+## Input Data
+
+```{r}
+data <- read_excel("C:/Users/LENOVO/Downloads/data_trimmed.xlsx")
+data
+```
+
+```{r}
+data.ts <- ts(data$AI_Revenue_USD_Mn)
+length(data.ts)
+```
+
+### Plot Time Series
+```{r}
+ts.plot(data.ts, xlab = "Date", ylab = "Revenue", 
+        main = "Time Series Plot",
+        ylim = c(153, 157))   # atur rentang Y
+
+points(data.ts)
+```
+
+Selanjutnya, kita akan membagi data  menjadi **data latih (80%)** untuk membangun model dan **data uji (20%)** untuk validasi peramalan.
+
+```{r}
+saham.train <- data.ts[1:120]
+saham.test <- data.ts[121:151]
+```
+
+#### Plot Time Series Data Latih
+```{r}
+ts.plot(saham.train, xlab = "Date", ylab = "Revenue", 
+        main = "Time Series Plot",
+        ylim = c(153, 157))   # atur rentang Y
+
+points(saham.train)
+```
+
+#### Plot Time Series Data Uji
+```{r}
+ts.plot(saham.test, xlab = "Date", ylab = "Revenue", 
+        main = "Time Series Plot",
+        ylim = c(153, 157))   # atur rentang Y
+
+points(saham.test)
+```
+
+
+#### Plot ACF dan Uji Formal (Uji ADF)
+
+```{r}
+#--CEK KESTASIONERAN---#
+acf(saham.train, main="ACF", lag.max=20)
+```
+
+```{r}
+tseries::adf.test(saham.train) 
+#stasioner
+```
+
+$H_0$ : Data tidak stasioner dalam rataan
+
+$H_1$ : Data stasioner dalam rataan
+
+Berdasarkan uji ADF tersebut, didapat *p-value* sebesar 0.01 yang lebih kecil dari taraf nyata 5% sehingga tolak $H_0$ dan menandakan bahwa data stasioner dalam rataan. Hal ini sesuai dengan hasil eksplorasi menggunakan plot time series dan plot ACF.
+
+```{r}
+index <- seq(1:120)
+
+# Box-Cox
+bc <- boxcox(
+  saham.train ~ index,
+  lambda = seq(-100, 200, by = 0.01)
+)
+
+# Nilai lambda optimum
+lambda <- bc$x[which.max(bc$y)]
+lambda
+
+# Selang kepercayaan 95% untuk lambda
+ci_lambda <- bc$x[bc$y > max(bc$y) - 0.5 * qchisq(0.95, 1)]
+
+# Batas bawah dan batas atas
+ci_lower <- min(ci_lambda)
+ci_upper <- max(ci_lambda)
+
+c(Batas_Bawah = ci_lower, Batas_Atas = ci_upper)
+```
+
+```{r}
+index <- seq(1:120)
+bc = MASS::boxcox(saham.train~index, lambda = seq(-2,6 ,by=1))
+#Nilai Rounded Lambda
+lambda <- bc$x[which.max(bc$y)]
+lambda
+#SK
+bc$x[bc$y > max(bc$y) - 1/2 * qchisq(.95,1)]
+```
+
+Gambar di atas menunjukkan nilai λ optimum (dibulatkan) sekitar 23.16 dan selang kepercayaan 95% untuk λ memiliki batas bawah -19.78 dan batas atas 66.70 Selang tersebut memuat nilai 1, sehingga secara praktis dapat dikatakan data bangkitan stasioner dalam ragam.
+
+
+### Spesifikasi Model
+```{r}
+#---SPESIFIKASI MODEL---#
+par(mfrow = c(1,2))
+acf(saham.train, main="ACF", lag.max=30) 
+pacf(saham.train, main="PACF", lag.max=30) 
+par(mfrow = c(1,1))
+```
+
+Berdasarkan plot ACF dan PACF, sebagian besar spike berada dalam batas signifikansi dengan beberapa lag yang sedikit signifikan. Tidak tampak pola AR maupun MA yang jelas, sehingga data cenderung mendekati white noise. Hal ini menunjukkan bahwa data sudah stasioner dan residual dapat dianggap sebagai deret acak.
+
+```{r}
+# Plot EACF
+eacf(saham.train)
+```
+
+Berdasarkan plot EACF, model yang paling mungkin sesuai untuk data adalah ARMA(0,1) atau ARMA(1,1), dengan kemungkinan juga ARMA(2,2) atau ARMA(2,3).
+
+### Pendugaan Parameter
+```{r}
+#---PENDUGAAN PARAMETER MODEL---#
+model1.saham=Arima(saham.train, order=c(0,0,1),method="ML")
+summary(model1.saham) 
+lmtest::coeftest(model1.saham) 
+
+model2.saham=Arima(saham.train, order=c(1,0,1),method="ML") 
+summary(model2.saham) 
+lmtest::coeftest(model2.saham) 
+
+model3.saham=Arima(saham.train, order=c(2,0,2),method="ML") 
+summary(model3.saham) 
+lmtest::coeftest(model3.saham) 
+
+model4.saham=Arima(saham.train, order=c(2,0,3),method="ML") 
+summary(model4.saham) 
+lmtest::coeftest(model4.saham) 
+```
+
+Berdasarkan hasil pendugaan parameter, diperoleh bahwa model ARIMA(0,0,1), dan ARIMA(2,0,1) tidak layak dipilih karena parameter utama tidak signifikan. Sementara itu, model ARIMA(2,0,2) secara statistik kuat, tetapi berpontensi overfitting dan near-nonstationary karena parameter AR dan MA ≈ 1. Dari keseluruhan kandidat, model ARIMA(1,0,1) merupakan model terbaik karena semua parameter signifikan, namun nilai AIC tidak yang paling rendah (209.31), serta menghasilkan ukuran kesalahan yang lebih kecil dibandingkan model lainnya. Dengan mempertimbangkan parsimoni + signifikansi parameter, ARIMA(1,0,1) menjadi model yang paling tepat dipilih untuk peramalan.
+
+### Analisis Sisaan
+
+```{r}
+#Eksplorasi
+resid_model2 <- residuals(model2.saham)
+par(mfrow=c(2,2))
+#qqnorm(sisaan.ma2)
+#qqline(sisaan.ma2, col = "blue", lwd = 2)
+car::qqPlot(resid_model2)
+plot(c(1:length(resid_model2)),resid_model2)
+acf(resid_model2)
+pacf(resid_model2)
+par(mfrow = c(1,1))
+```
+
+
+#### Uji Formal
+
+```{r}
+#Sisaan Menyebar Normal
+shapiro.test(resid_model2)
+```
+
+$H_0$ : Sisaan menyebar normal
+
+$H_1$ : Sisaan tidak menyebar normal
+
+Berdasarkan uji SW tersebut, didapat *p-value* sebesar 0.3055 yang lebih besar dari taraf nyata 5% sehingga tak tolak $H_0$ dan menandakan bahwa sisaan menyebar normal. 
+
+```{r}
+#Sisaan saling bebas/tidak ada autokorelasi
+Box.test(resid_model2, type = "Ljung")
+```
+
+$H_0$ : Sisaan saling bebas
+
+$H_1$ : Sisaan tidak tidak saling bebas
+
+Berdasarkan uji Ljung-Box tersebut, didapat *p-value* sebesar 0.8906 yang lebih besar dari taraf nyata 5% sehingga tak tolak $H_0$ dan menandakan bahwa sisaan saling bebas.
+
+```{r}
+#Sisaan homogen
+Box.test((resid_model2)^2, type = "Ljung")
+```
+
+$H_0$ : Ragam sisaan homogen
+
+$H_1$ : Ragam sisaan tidak homogen
+
+Berdasarkan uji Ljung-Box terhadap sisaan kuadrat tersebut, didapat *p-value* sebesar 0.3841 yang lebih besar dari taraf nyata 5% sehingga tak tolak $H_0$ dan menandakan bahwa ragam sisaan homogen.
+
+```{r}
+#Nilai tengah sisaan sama dengan nol
+t.test(resid_model2, mu = 0, conf.level = 0.95)
+```
+
+$H_0$ : nilai tengah sisaan sama dengan 0
+
+$H_1$ : nilai tengah sisaan tidak sama dengan 0
+
+Berdasarkan uji-tersebut, didapat *p-value* sebesar 0.9945 yang lebih besar dari taraf nyata 5% sehingga tak tolak $H_0$ dan menandakan bahwa nilai tengah sisaan sama dengan nol.
+
+### Overfitting
+
+Tahapan selanjutnya adalah *overfitting* dilakukan dengan menaikkan orde AR(p) dan MA(q) dari model ARIMA(1,0,1) untuk melihat apakah terdapat model lain yang lebih baik dari model saat ini. Kandidat model *overfitting* adalah ARIMA(2,0,1) dan ARIMA(1,0,2).
+
+```{r}
+#---OVERFITTING---#
+model1a.saham=Arima(saham.train, order=c(2,0,1),method="ML")
+summary(model1a.saham) 
+lmtest::coeftest(model1a.saham) 
+
+model1b.saham=Arima(saham.train, order=c(1,0,2),method="ML")
+summary(model1b.saham) 
+lmtest::coeftest(model1b.saham) 
+```
+
+Baik ARIMA(2,0,1) maupun ARIMA(1,0,2) tidak lebih baik daripada ARIMA(1,0,1) karena memiliki nilai AIC lebih besar dan parameter yang tidak seluruhnya signifikan. Sehingga ARIMA(1,0,1) dipilih sebagai model yang paling tepat digunakan untuk peramalan karena seluruh parameter signifikan, serta menghasilkan kesalahan peramalan yang relatif rendah, meskipun nilai AIC nya tidak yang paling rendah.
+
+### Peramalan
+
+```{r}
+#---FORECAST---#
+ramalan <- forecast::forecast(model2.saham, h = 31) 
+ramalan
+data.ramalan <- ramalan$mean
+plot(ramalan)
+```
+
+Berdasarkan plot menampilkan hasil peramalan menggunakan model ARIMA(1,0,1) dengan non-zero mean. Garis biru menunjukkan nilai ramalan, sedangkan area bayangan (abu-abu) merupakan interval kepercayaan dengan tingkat ketidakpastian yang semakin melebar seiring bertambahnya periode peramalan. Dari hasil tersebut, nilai ramalan cenderung stabil di sekitar rata-rata 154–155, tanpa tren naik atau turun yang jelas. Lebarnya interval kepercayaan menunjukkan bahwa semakin jauh ke depan, ketidakpastian peramalan semakin besar. Selanjutnya, dapat dicari nilai akurasi antara hasil ramalan dengan data uji sebagai berikut.
+
+```{r}
+perbandingan<-matrix(data=c(saham.test, data.ramalan),
+                     nrow = 31, ncol = 2)
+colnames(perbandingan)<-c("Aktual","Hasil Forecast")
+perbandingan
+accuracy(data.ramalan, saham.test)
+```
+
+```{r}
+summary(saham.test)
+summary(data.ramalan)
+```
 
